@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MEIFinanças — Dashboard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #F5F5F0;
+      --surface:   #FFFFFF;
+      --surface2:  #F0EFE8;
+      --border:    rgba(0,0,0,0.10);
+      --border2:   rgba(0,0,0,0.18);
+      --text:      #1A1A18;
+      --text2:     #6B6A64;
+      --text3:     #A09F99;
+      --green:     #1D9E75;
+      --green-bg:  #E1F5EE;
+      --green-dk:  #085041;
+      --green-bd:  #5DCAA5;
+      --amber:     #BA7517;
+      --amber-bg:  #FAEEDA;
+      --amber-dk:  #633806;
+      --red:       #D85A30;
+      --red-bg:    #FAECE7;
+      --red-bd:    #F0997B;
+      --red-dk:    #993C1D;
+      --purple:    #534AB7;
+      --purple-bg: #EEEDFE;
+      --nav-h:     64px;
+      --radius:    12px;
+      --radius-sm: 8px;
+    }
+
+    html { font-size: 16px; }
+    body {
+      font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── TOPBAR ── */
+    .topbar {
+      position: sticky; top: 0; z-index: 100;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      height: 56px;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 20px;
+    }
+    .logo { font-size: 17px; font-weight: 700; letter-spacing: -0.5px; color: var(--text); }
+    .logo span { color: var(--green); }
+    .month-badge {
+      font-size: 12px; font-weight: 600;
+      background: var(--green-bg); color: var(--green-dk);
+      padding: 4px 10px; border-radius: 99px;
+    }
+
+    /* ── LAYOUT ── */
+    .app { display: flex; flex-direction: column; min-height: 100vh; }
+    .main {
+      flex: 1;
+      padding: 20px 16px 88px;
+      max-width: 720px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    /* ── BOTTOM NAV ── */
+    .bottomnav {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: flex;
+      z-index: 100;
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    .navbtn {
+      flex: 1; border: none; background: transparent; cursor: pointer;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 3px; padding: 10px 4px;
+      color: var(--text3); font-size: 10px; font-weight: 500;
+      font-family: inherit; transition: color .15s;
+    }
+    .navbtn.active { color: var(--green); }
+    .navbtn svg {
+      width: 22px; height: 22px;
+      stroke: currentColor; fill: none;
+      stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+    }
+
+    /* ── SECTIONS ── */
+    .section { display: none; }
+    .section.active { display: block; }
+
+    /* ── CARDS ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      margin-bottom: 14px;
+    }
+    .card-title {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.6px;
+      text-transform: uppercase; color: var(--text3);
+      margin-bottom: 14px;
+    }
+
+    /* ── METRIC GRID ── */
+    .metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+    .metric {
+      background: var(--surface2); border-radius: var(--radius-sm);
+      padding: 12px 14px;
+    }
+    .metric.full { grid-column: 1 / -1; }
+    .metric-label { font-size: 11px; color: var(--text2); margin-bottom: 5px; }
+    .metric-value { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
+    .green-val { color: var(--green); }
+    .red-val   { color: var(--red); }
+    .amber-val { color: var(--amber); }
+
+    /* ── BAR CHART ── */
+    .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .bar-row:last-child { margin-bottom: 0; }
+    .bar-label { font-size: 11px; color: var(--text2); width: 78px; text-align: right; flex-shrink: 0; }
+    .bar-track { flex: 1; height: 16px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
+    .bar-fill   { height: 100%; border-radius: 4px; transition: width .5s ease; }
+    .bar-val    { font-size: 12px; font-weight: 600; color: var(--text); width: 76px; flex-shrink: 0; }
+
+    /* ── PROGRESS ── */
+    .progress-labels {
+      display: flex; justify-content: space-between;
+      font-size: 12px; color: var(--text2); margin-bottom: 8px;
+    }
+    .progress-track { height: 12px; background: var(--surface2); border-radius: 99px; overflow: hidden; }
+    .progress-fill  { height: 100%; border-radius: 99px; transition: width .6s ease; }
+    .progress-meta  {
+      display: flex; justify-content: space-between;
+      font-size: 11px; color: var(--text3); margin-top: 6px;
+    }
+    .badge {
+      font-size: 11px; font-weight: 700;
+      padding: 3px 9px; border-radius: 99px;
+      display: inline-block;
+    }
+    .badge.green  { background: var(--green-bg);  color: var(--green-dk); }
+    .badge.amber  { background: var(--amber-bg);  color: var(--amber-dk); }
+    .badge.red    { background: var(--red-bg);    color: var(--red-dk); }
+    .badge.purple { background: var(--purple-bg); color: var(--purple); }
+    .tip {
+      font-size: 12px; color: var(--text2); line-height: 1.6;
+      background: var(--surface2); border-radius: var(--radius-sm);
+      padding: 10px 12px; margin-top: 12px;
+    }
+
+    /* ── SECTION TITLE ── */
+    .section-title { font-size: 18px; font-weight: 700; letter-spacing: -0.4px; margin-bottom: 16px; }
+
+    /* ── FORM FIELDS ── */
+    .field-group { margin-bottom: 14px; }
+    .field-group:last-child { margin-bottom: 0; }
+    .field-label { display: block; font-size: 12px; color: var(--text2); margin-bottom: 5px; font-weight: 500; }
+    .field-input {
+      width: 100%; height: 42px;
+      border: 1.5px solid var(--border2);
+      border-radius: var(--radius-sm);
+      background: var(--surface2);
+      color: var(--text); font-size: 15px; font-family: inherit;
+      padding: 0 12px; outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .field-input:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(29,158,117,0.15);
+      background: var(--surface);
+    }
+    .field-input::placeholder { color: var(--text3); }
+    .input-prefix {
+      position: relative;
+    }
+    .input-prefix .pfx {
+      position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+      font-size: 13px; color: var(--text3); pointer-events: none;
+    }
+    .input-prefix .field-input { padding-left: 26px; }
+
+    /* ── RESULT CARDS ── */
+    .result-row { display: flex; gap: 10px; margin-top: 10px; }
+    .result-row > * { flex: 1; }
+    .mini-result {
+      background: var(--surface2); border-radius: var(--radius-sm); padding: 12px 14px;
+    }
+    .mini-label { font-size: 11px; color: var(--text2); margin-bottom: 4px; }
+    .mini-value { font-size: 17px; font-weight: 700; }
+
+    .result-card {
+      border-radius: var(--radius); padding: 16px 18px;
+      margin-top: 12px; border: 1.5px solid transparent;
+    }
+    .result-card.positive { background: var(--green-bg);  border-color: var(--green-bd); }
+    .result-card.negative { background: var(--red-bg);    border-color: var(--red-bd); }
+    .result-card.neutral  { background: var(--surface2);  border-color: var(--border); }
+    .result-card .rc-label { font-size: 12px; font-weight: 700; margin-bottom: 4px; }
+    .result-card.positive .rc-label { color: var(--green); }
+    .result-card.negative .rc-label { color: var(--red-dk); }
+    .result-card.neutral  .rc-label { color: var(--text2); }
+    .result-card .rc-value { font-size: 30px; font-weight: 800; letter-spacing: -1px; }
+    .result-card.positive .rc-value { color: var(--green-dk); }
+    .result-card.negative .rc-value { color: var(--red-dk); }
+    .result-card.neutral  .rc-value { color: var(--text); }
+    .result-card .rc-sub  { font-size: 12px; margin-top: 4px; }
+    .result-card.positive .rc-sub { color: var(--green); }
+    .result-card.negative .rc-sub { color: var(--red); }
+    .result-card.neutral  .rc-sub { color: var(--text3); }
+
+    /* ── DIVIDER ── */
+    .divider { height: 1px; background: var(--border); margin: 14px 0; }
+
+    /* ── EXPENSE LIST ── */
+    .expense-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 0; border-bottom: 1px solid var(--border);
+    }
+    .expense-item:last-child { border-bottom: none; padding-bottom: 0; }
+    .expense-name  { font-size: 14px; color: var(--text); }
+    .expense-cat   { font-size: 11px; color: var(--text3); margin-top: 2px; }
+    .expense-amount { font-size: 15px; font-weight: 700; }
+
+    /* ── TOTAL FOOTER ── */
+    .total-footer {
+      display: flex; justify-content: space-between; align-items: center;
+      background: var(--surface2); border-radius: var(--radius-sm);
+      padding: 14px 16px; margin-top: 4px;
+    }
+    .total-footer-label { font-size: 13px; color: var(--text2); }
+    .total-footer-value { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+
+    /* ── RESPONSIVE ── */
+    @media (min-width: 600px) {
+      .main { padding: 28px 24px 96px; }
+      .topbar { padding: 0 28px; }
+    }
+    @media (min-width: 900px) {
+      .bottomnav { display: none; }
+      .topbar { height: 60px; }
+      .sidebar {
+        display: flex; flex-direction: column;
+        width: 220px; flex-shrink: 0;
+        background: var(--surface);
+        border-right: 1px solid var(--border);
+        position: fixed; top: 60px; left: 0; bottom: 0;
+        padding: 24px 12px; gap: 4px;
+      }
+      .sidenav-btn {
+        display: flex; align-items: center; gap: 10px;
+        padding: 10px 14px; border-radius: var(--radius-sm);
+        border: none; background: transparent; cursor: pointer;
+        font-size: 14px; font-weight: 500; color: var(--text2);
+        font-family: inherit; width: 100%; text-align: left;
+        transition: background .15s, color .15s;
+      }
+      .sidenav-btn:hover { background: var(--surface2); color: var(--text); }
+      .sidenav-btn.active { background: var(--green-bg); color: var(--green-dk); }
+      .sidenav-btn svg {
+        width: 18px; height: 18px;
+        stroke: currentColor; fill: none;
+        stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+        flex-shrink: 0;
+      }
+      .layout-with-sidebar { display: flex; }
+      .main {
+        margin-left: 220px;
+        max-width: calc(720px + 220px);
+        padding: 28px 32px 40px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="app">
+  <header class="topbar">
+    <span class="logo">MEI<span>Finanças</span></span>
+    <span class="month-badge">Maio 2025</span>
+  </header>
+
+  <!-- Sidebar (desktop only) -->
+  <aside class="sidebar" id="sidebar" style="display:none">
+    <button class="sidenav-btn active" onclick="goto('dashboard', this, true)">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Dashboard
+    </button>
+    <button class="sidenav-btn" onclick="goto('lucro', this, true)">
+      <svg viewBox="0 0 24 24"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>
+      Lucro Real
+    </button>
+    <button class="sidenav-btn" onclick="goto('preco', this, true)">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 9h4a2 2 0 0 1 0 4H9v4"/><line x1="11" y1="6" x2="11" y2="9"/><line x1="11" y1="17" x2="11" y2="20"/></svg>
+      Precificação
+    </button>
+    <button class="sidenav-btn" onclick="goto('desp', this, true)">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      Despesas
+    </button>
+  </aside>
+
+  <main class="main">
+
+    <!-- ════════════════ DASHBOARD ════════════════ -->
+    <div class="section active" id="sec-dashboard">
+      <p class="section-title">Visão geral</p>
+
+      <div class="card">
+        <div class="card-title">Resumo do mês — Maio</div>
+        <div class="metric-grid">
+          <div class="metric">
+            <div class="metric-label">Faturamento</div>
+            <div class="metric-value">R$&nbsp;12.400</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Custos totais</div>
+            <div class="metric-value red-val">R$&nbsp;7.850</div>
+          </div>
+          <div class="metric full">
+            <div class="metric-label">Lucro líquido</div>
+            <div class="metric-value green-val">R$&nbsp;4.550</div>
+          </div>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">Faturamento</span>
+          <div class="bar-track"><div class="bar-fill" style="width:100%;background:#1D9E75"></div></div>
+          <span class="bar-val">R$ 12.400</span>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">Custos fixos</span>
+          <div class="bar-track"><div class="bar-fill" style="width:40%;background:#BA7517"></div></div>
+          <span class="bar-val">R$ 4.950</span>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">Custos var.</span>
+          <div class="bar-track"><div class="bar-fill" style="width:23%;background:#D85A30"></div></div>
+          <span class="bar-val">R$ 2.900</span>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">Lucro líq.</span>
+          <div class="bar-track"><div class="bar-fill" style="width:37%;background:#1D9E75"></div></div>
+          <span class="bar-val">R$ 4.550</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Termômetro do limite MEI</div>
+        <div class="progress-labels">
+          <span style="font-weight:600">R$ 45.000 faturados no ano</span>
+          <span class="badge amber">55,6%</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" style="width:55.6%;background:#BA7517"></div>
+        </div>
+        <div class="progress-meta">
+          <span>Janeiro 2025</span>
+          <span>Limite anual: R$ 81.000</span>
+        </div>
+        <div class="tip">
+          Você utilizou <strong>55,6%</strong> do limite anual MEI. Restam <strong>R$ 36.000</strong> para faturar até dezembro. Ultrapassar o limite pode resultar em exclusão do MEI e recolhimento retroativo de impostos.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Histórico dos últimos meses</div>
+        <div class="bar-row" style="margin-bottom:10px">
+          <span class="bar-label">Fevereiro</span>
+          <div class="bar-track"><div class="bar-fill" style="width:68%;background:#1D9E75"></div></div>
+          <span class="bar-val">R$ 8.450</span>
+        </div>
+        <div class="bar-row" style="margin-bottom:10px">
+          <span class="bar-label">Março</span>
+          <div class="bar-track"><div class="bar-fill" style="width:82%;background:#1D9E75"></div></div>
+          <span class="bar-val">R$ 10.200</span>
+        </div>
+        <div class="bar-row" style="margin-bottom:10px">
+          <span class="bar-label">Abril</span>
+          <div class="bar-track"><div class="bar-fill" style="width:90%;background:#1D9E75"></div></div>
+          <span class="bar-val">R$ 11.300</span>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label" style="color:#1D9E75;font-weight:700">Maio ✦</span>
+          <div class="bar-track"><div class="bar-fill" style="width:100%;background:#1D9E75"></div></div>
+          <span class="bar-val" style="color:#1D9E75;font-weight:700">R$ 12.400</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════ LUCRO REAL ════════════════ -->
+    <div class="section" id="sec-lucro">
+      <p class="section-title">Calculadora de lucro real</p>
+
+      <div class="card">
+        <div class="card-title">Receita do período</div>
+        <div class="field-group">
+          <label class="field-label">Faturamento bruto (R$)</label>
+          <div class="input-prefix">
+            <span class="pfx">R$</span>
+            <input class="field-input" type="number" id="l-fat" placeholder="0,00" min="0" oninput="calcLucro()">
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Custos variáveis</div>
+        <div class="field-group">
+          <label class="field-label">Taxa de cartão / marketplace (R$)</label>
+          <div class="input-prefix"><span class="pfx">R$</span>
+            <input class="field-input" type="number" id="l-cv1" placeholder="0,00" min="0" oninput="calcLucro()">
+          </div>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Matéria-prima / estoque (R$)</label>
+          <div class="input-prefix"><span class="pfx">R$</span>
+            <input class="field-input" type="number" id="l-cv2" placeholder="0,00" min="0" oninput="calcLucro()">
+          </div>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Impostos sobre receita (DAS, etc.) (R$)</label>
+          <div class="input-prefix"><span class="pfx">R$</span>
+            <input class="field-input" type="number" id="l-cv3" placeholder="0,00" min="0" oninput="calcLucro()">
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Custos fixos</div>
+        <div class="field-group">
+          <label class="field-label">Aluguel (R$)</label>
+          <div class="input-prefix"><span class="pfx">R$</span>
+            <input class="field-input" type="number" id="l-cf1" placeholder="0,00" min="0" oninput="calcLucro()">
+          </div>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Internet / telefone (R$)</label>
+          <div class="input-prefix"><span class="pfx">R$</span>
+            <input class="field-input" type="number" id="l-cf2" placeholder="0,00" min="0" oninput="calcLucro()">
+          </div>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Contador / outros fixos (R$)</label>
+          <div class="input-prefix"><span class="pfx">R$</span>
+            <input class="field-input" type="number" id="l-cf3" placeholder="0,00" min="0" oninput="calcLucro()">
+          </div>
+        </div>
+      </div>
+
+      <div class="result-row">
+        <div class="mini-result">
+          <div class="mini-label">Lucro bruto</div>
+          <div class="mini-value" id="l-bruto" style="color:var(--green)">R$ —</div>
+        </div>
+        <div class="mini-result">
+          <div class="mini-label">Total fixos</div>
+          <div class="mini-value" id="l-cf-total" style="color:var(--amber)">R$ —</div>
+        </div>
+      </div>
+
+      <div class="result-card neutral" id="l-result-card">
+        <div class="rc-label" id="l-result-label">Preencha o faturamento para calcular</div>
+        <div class="rc-value" id="l-result-value">—</div>
+        <div class="rc-sub"  id="l-result-sub"></div>
+      </div>
+    </div>
+
+    <!-- ════════════════ PRECIFICAÇÃO ════════════════ -->
+    <div class="section" id="sec-preco">
+      <p class="section-title">Calculadora de precificação</p>
+
+      <div class="card">
+        <div class="card-title">Dados do produto / serviço</div>
+        <div class="field-group">
+          <label class="field-label">Custo do produto (R$)</label>
+          <div class="input-prefix"><span class="pfx">R$</span>
+            <input class="field-input" type="number" id="p-custo" placeholder="0,00" min="0" oninput="calcPreco()">
+          </div>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Taxa de cartão / marketplace (%)</label>
+          <div class="input-prefix"><span class="pfx">%</span>
+            <input class="field-input" type="number" id="p-taxa" placeholder="Ex: 3,5" min="0" max="99" oninput="calcPreco()">
+          </div>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Imposto sobre a venda (%)</label>
+          <div class="input-prefix"><span class="pfx">%</span>
+            <input class="field-input" type="number" id="p-imp" placeholder="Ex: 6" min="0" max="99" oninput="calcPreco()">
+          </div>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Margem de lucro desejada (%)</label>
+          <div class="input-prefix"><span class="pfx">%</span>
+            <input class="field-input" type="number" id="p-margem" placeholder="Ex: 30" min="0" max="99" oninput="calcPreco()">
+          </div>
+        </div>
+      </div>
+
+      <div class="result-card neutral" id="p-result-card">
+        <div class="rc-label" id="p-result-label">Preço ideal de venda</div>
+        <div class="rc-value" id="p-result-value">—</div>
+        <div class="rc-sub"  id="p-result-sub"></div>
+      </div>
+
+      <div class="result-row">
+        <div class="mini-result">
+          <div class="mini-label">Markup</div>
+          <div class="mini-value" id="p-markup">—</div>
+        </div>
+        <div class="mini-result">
+          <div class="mini-label">Lucro unitário</div>
+          <div class="mini-value" id="p-lucro-unit">—</div>
+        </div>
+        <div class="mini-result">
+          <div class="mini-label">% Desconto máx.</div>
+          <div class="mini-value" id="p-desc-max">—</div>
+        </div>
+      </div>
+
+      <div class="tip" id="p-tip" style="display:none"></div>
+
+      <div class="card" style="margin-top:14px">
+        <div class="card-title">Como o cálculo funciona</div>
+        <p style="font-size:13px;color:var(--text2);line-height:1.7">
+          <strong>Fórmula:</strong><br>
+          Preço = Custo ÷ (1 − (Taxas + Impostos + Margem) ÷ 100)<br><br>
+          Essa fórmula garante que, após descontar taxas, impostos e sua margem desejada do preço de venda, você ainda cobre o custo do produto e lucra o percentual definido.
+        </p>
+      </div>
+    </div>
+
+    <!-- ════════════════ DESPESAS ════════════════ -->
+    <div class="section" id="sec-desp">
+      <p class="section-title">Despesas</p>
+
+      <div class="card">
+        <div class="card-title">Custos fixos — Maio</div>
+        <div class="expense-item">
+          <div>
+            <div class="expense-name">Aluguel</div>
+            <div class="expense-cat">Infraestrutura</div>
+          </div>
+          <span class="expense-amount amber-val">R$ 800</span>
+        </div>
+        <div class="expense-item">
+          <div>
+            <div class="expense-name">Internet + telefone</div>
+            <div class="expense-cat">Infraestrutura</div>
+          </div>
+          <span class="expense-amount amber-val">R$ 150</span>
+        </div>
+        <div class="expense-item">
+          <div>
+            <div class="expense-name">Contador</div>
+            <div class="expense-cat">Serviços</div>
+          </div>
+          <span class="expense-amount amber-val">R$ 200</span>
+        </div>
+        <div class="expense-item">
+          <div>
+            <div class="expense-name">DAS (guia MEI)</div>
+            <div class="expense-cat">Imposto</div>
+          </div>
+          <span class="expense-amount amber-val">R$ 75</span>
+        </div>
+        <div class="divider"></div>
+        <div class="total-footer">
+          <span class="total-footer-label">Total fixos</span>
+          <span class="total-footer-value amber-val">R$ 1.225</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Custos variáveis — Maio</div>
+        <div class="expense-item">
+          <div>
+            <div class="expense-name">Estoque / matéria-prima</div>
+            <div class="expense-cat">Produção</div>
+          </div>
+          <span class="expense-amount red-val">R$ 5.200</span>
+        </div>
+        <div class="expense-item">
+          <div>
+            <div class="expense-name">Taxas de cartão</div>
+            <div class="expense-cat">Financeiro</div>
+          </div>
+          <span class="expense-amount red-val">R$ 930</span>
+        </div>
+        <div class="expense-item">
+          <div>
+            <div class="expense-name">Frete / logística</div>
+            <div class="expense-cat">Operação</div>
+          </div>
+          <span class="expense-amount red-val">R$ 620</span>
+        </div>
+        <div class="divider"></div>
+        <div class="total-footer">
+          <span class="total-footer-label">Total variáveis</span>
+          <span class="total-footer-value red-val">R$ 6.750</span>
+        </div>
+      </div>
+
+      <div class="card" style="background:var(--surface2)">
+        <div class="total-footer" style="background:transparent;padding:0">
+          <span class="total-footer-label" style="font-size:14px">Total geral de despesas</span>
+          <span class="total-footer-value red-val" style="font-size:26px">R$ 7.975</span>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:4px">
+        <div class="card-title">Distribuição por categoria</div>
+        <div class="bar-row">
+          <span class="bar-label">Produção</span>
+          <div class="bar-track"><div class="bar-fill" style="width:100%;background:#D85A30"></div></div>
+          <span class="bar-val" style="font-size:11px">R$ 5.200 (65%)</span>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">Infra</span>
+          <div class="bar-track"><div class="bar-fill" style="width:18%;background:#BA7517"></div></div>
+          <span class="bar-val" style="font-size:11px">R$ 950 (12%)</span>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">Financeiro</span>
+          <div class="bar-track"><div class="bar-fill" style="width:18%;background:#534AB7"></div></div>
+          <span class="bar-val" style="font-size:11px">R$ 930 (12%)</span>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">Operação</span>
+          <div class="bar-track"><div class="bar-fill" style="width:12%;background:#1D9E75"></div></div>
+          <span class="bar-val" style="font-size:11px">R$ 620 (8%)</span>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">Serviços</span>
+          <div class="bar-track"><div class="bar-fill" style="width:4%;background:#6B6A64"></div></div>
+          <span class="bar-val" style="font-size:11px">R$ 275 (3%)</span>
+        </div>
+      </div>
+    </div>
+
+  </main><!-- /main -->
+
+  <!-- Bottom nav (mobile/tablet) -->
+  <nav class="bottomnav" id="bottomnav">
+    <button class="navbtn active" onclick="goto('dashboard',this,false)">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Dashboard
+    </button>
+    <button class="navbtn" onclick="goto('lucro',this,false)">
+      <svg viewBox="0 0 24 24"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>
+      Lucro Real
+    </button>
+    <button class="navbtn" onclick="goto('preco',this,false)">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 9h4a2 2 0 0 1 0 4H9v4"/><line x1="11" y1="6" x2="11" y2="9"/><line x1="11" y1="17" x2="11" y2="20"/></svg>
+      Preços
+    </button>
+    <button class="navbtn" onclick="goto('desp',this,false)">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      Despesas
+    </button>
+  </nav>
+</div>
+
+<script>
+  /* ── NAV ── */
+  function goto(id, btn, isSide) {
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.getElementById('sec-' + id).classList.add('active');
+
+    var btns = isSide
+      ? document.querySelectorAll('.sidenav-btn')
+      : document.querySelectorAll('.navbtn');
+    btns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  /* ── RESPONSIVE SIDEBAR ── */
+  function handleResize() {
+    var sidebar  = document.getElementById('sidebar');
+    var bottomnav = document.getElementById('bottomnav');
+    if (window.innerWidth >= 900) {
+      sidebar.style.display = 'flex';
+      bottomnav.style.display = 'none';
+    } else {
+      sidebar.style.display = 'none';
+      bottomnav.style.display = 'flex';
+    }
+  }
+  window.addEventListener('resize', handleResize);
+  handleResize();
+
+  /* ── UTILS ── */
+  function val(id) { return parseFloat(document.getElementById(id).value) || 0; }
+  function fmt(n) {
+    return 'R$ ' + Math.abs(n).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function pct(n) { return n.toFixed(1) + '%'; }
+
+  /* ── LUCRO REAL ── */
+  function calcLucro() {
+    var fat = val('l-fat');
+    var cv  = val('l-cv1') + val('l-cv2') + val('l-cv3');
+    var cf  = val('l-cf1') + val('l-cf2') + val('l-cf3');
+
+    var bruto   = fat - cv;
+    var liquido = bruto - cf;
+
+    document.getElementById('l-bruto').textContent    = fat ? fmt(bruto)  : 'R$ —';
+    document.getElementById('l-cf-total').textContent = cf  ? fmt(cf)     : 'R$ —';
+
+    var rc  = document.getElementById('l-result-card');
+    var rl  = document.getElementById('l-result-label');
+    var rv  = document.getElementById('l-result-value');
+    var rs  = document.getElementById('l-result-sub');
+
+    if (!fat) {
+      rc.className = 'result-card neutral';
+      rl.textContent = 'Preencha o faturamento para calcular';
+      rv.textContent = '—';
+      rs.textContent = '';
+      return;
+    }
+
+    if (liquido >= 0) {
+      rc.className = 'result-card positive';
+      rl.textContent = 'Lucro líquido';
+      rv.textContent = fmt(liquido);
+      rs.textContent = 'Margem: ' + pct(fat > 0 ? (liquido / fat) * 100 : 0) + ' do faturamento';
+    } else {
+      rc.className = 'result-card negative';
+      rl.textContent = 'Prejuízo líquido';
+      rv.textContent = '− ' + fmt(liquido);
+      rs.textContent = 'Seus custos superam o faturamento. Revise as despesas!';
+    }
+  }
+
+  /* ── PRECIFICAÇÃO ── */
+  function calcPreco() {
+    var custo  = val('p-custo');
+    var taxa   = val('p-taxa');
+    var imp    = val('p-imp');
+    var margem = val('p-margem');
+
+    var rc  = document.getElementById('p-result-card');
+    var rv  = document.getElementById('p-result-value');
+    var rl  = document.getElementById('p-result-label');
+    var rs  = document.getElementById('p-result-sub');
+    var tip = document.getElementById('p-tip');
+
+    var denom = 1 - (taxa + imp + margem) / 100;
+
+    if (!custo || denom <= 0) {
+      rc.className = 'result-card neutral';
+      rl.textContent = 'Preço ideal de venda';
+      rv.textContent = '—';
+      rs.textContent = denom <= 0 ? 'A soma dos percentuais não pode ser ≥ 100%.' : '';
+      document.getElementById('p-markup').textContent      = '—';
+      document.getElementById('p-lucro-unit').textContent  = '—';
+      document.getElementById('p-desc-max').textContent    = '—';
+      tip.style.display = 'none';
+      return;
+    }
+
+    var preco     = custo / denom;
+    var totalPct  = (taxa + imp) / 100 * preco;
+    var lucroUnit = preco - custo - totalPct;
+    var markup    = ((preco / custo) - 1) * 100;
+    var descMax   = margem;
+
+    rc.className = 'result-card positive';
+    rl.textContent = 'Preço ideal de venda';
+    rv.textContent = fmt(preco);
+    rs.textContent = 'Garante ' + pct(margem) + ' de margem líquida após todos os custos.';
+
+    document.getElementById('p-markup').textContent      = pct(markup);
+    document.getElementById('p-lucro-unit').textContent  = fmt(lucroUnit);
+    document.getElementById('p-desc-max').textContent    = pct(descMax);
+
+    tip.style.display = 'block';
+    tip.innerHTML =
+      'Vendendo a <strong>' + fmt(preco) + '</strong> você cobre o custo do produto (' + fmt(custo) +
+      '), as taxas e impostos (' + pct(taxa + imp) + ') e ainda lucra <strong>' + fmt(lucroUnit) +
+      '</strong> por venda (' + pct(margem) + ' de margem).';
+  }
+</script>
+</body>
+</html>
