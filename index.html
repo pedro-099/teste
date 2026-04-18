@@ -240,6 +240,43 @@
     .total-footer-label { font-size: 13px; color: var(--text2); }
     .total-footer-value { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
 
+    /* ── SAVE BUTTON ── */
+    .btn-save {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      width: 100%; height: 46px; margin-top: 14px;
+      background: var(--green); color: #fff;
+      border: none; border-radius: var(--radius-sm);
+      font-size: 14px; font-weight: 700; font-family: inherit;
+      cursor: pointer; transition: background .15s, transform .1s;
+    }
+    .btn-save:hover  { background: #178a63; }
+    .btn-save:active { transform: scale(.98); }
+    .btn-save:disabled { background: var(--text3); cursor: not-allowed; }
+    .btn-save svg { width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round; }
+
+    /* ── TOAST ── */
+    #toast {
+      position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: var(--text); color: #fff;
+      padding: 10px 18px; border-radius: 99px;
+      font-size: 13px; font-weight: 500;
+      opacity: 0; pointer-events: none;
+      transition: opacity .25s, transform .25s;
+      z-index: 999; white-space: nowrap;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    #toast.success { background: var(--green); }
+    #toast.error   { background: var(--red); }
+
+    /* ── HISTORY TABLE ── */
+    .hist-wrap { overflow-x: auto; }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    th { text-align:left; font-size:11px; font-weight:700; color:var(--text3); text-transform:uppercase; letter-spacing:.5px; padding:0 8px 8px; border-bottom:1px solid var(--border); }
+    td { padding:10px 8px; border-bottom:1px solid var(--border); color:var(--text); vertical-align:middle; }
+    tr:last-child td { border-bottom:none; }
+    .hist-empty { text-align:center; color:var(--text3); font-size:13px; padding:20px 0; }
+    .loading-row { text-align:center; color:var(--text3); font-size:13px; padding:16px 0; }
+
     /* ── RESPONSIVE ── */
     @media (min-width: 600px) {
       .main { padding: 28px 24px 96px; }
@@ -283,6 +320,7 @@
 </head>
 <body>
 
+<div id="toast"></div>
 <div class="app">
   <header class="topbar">
     <span class="logo">MEI<span>Finanças</span></span>
@@ -471,6 +509,25 @@
         <div class="rc-value" id="l-result-value">—</div>
         <div class="rc-sub"  id="l-result-sub"></div>
       </div>
+
+      <button class="btn-save" id="l-btn-salvar" onclick="salvarLucro()">
+        <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Salvar no banco de dados
+      </button>
+
+      <div class="card" style="margin-top:14px">
+        <div class="card-title">Histórico salvo — Lucro Real</div>
+        <div class="hist-wrap">
+          <table>
+            <thead><tr>
+              <th>Data</th><th>Faturamento</th><th>Lucro Liq.</th><th>Margem</th>
+            </tr></thead>
+            <tbody id="l-hist-body">
+              <tr><td colspan="4" class="loading-row">Carregando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <!-- ════════════════ PRECIFICAÇÃO ════════════════ -->
@@ -527,6 +584,25 @@
       </div>
 
       <div class="tip" id="p-tip" style="display:none"></div>
+
+      <button class="btn-save" id="p-btn-salvar" onclick="salvarPreco()">
+        <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Salvar no banco de dados
+      </button>
+
+      <div class="card" style="margin-top:14px">
+        <div class="card-title">Histórico salvo — Precificação</div>
+        <div class="hist-wrap">
+          <table>
+            <thead><tr>
+              <th>Data</th><th>Custo</th><th>Preço Venda</th><th>Markup</th>
+            </tr></thead>
+            <tbody id="p-hist-body">
+              <tr><td colspan="4" class="loading-row">Carregando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       <div class="card" style="margin-top:14px">
         <div class="card-title">Como o cálculo funciona</div>
@@ -670,86 +746,213 @@
 </div>
 
 <script>
-  /* ── NAV ── */
-  function goto(id, btn, isSide) {
-    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-    document.getElementById('sec-' + id).classList.add('active');
+  /* ══════════════════════════════════════════════
+     SUPABASE CONFIG
+  ══════════════════════════════════════════════ */
+  var SUPABASE_URL = "https://mrengfldvqxyijqxuyrn.supabase.co/rest/v1";
+  var API_KEY      = "sb_publishable_c2FFvbLKq_brBenfeoBfQg_V0i8WhX4";
+  var HEADERS = {
+    "Content-Type":  "application/json",
+    "apikey":        API_KEY,
+    "Authorization": "Bearer " + API_KEY
+  };
 
+  /* ── TOAST ── */
+  function showToast(msg, tipo) {
+    var t = document.getElementById('toast');
+    t.textContent  = msg;
+    t.className    = 'show ' + (tipo || '');
+    clearTimeout(window._toastTimer);
+    window._toastTimer = setTimeout(function() { t.className = ''; }, 3000);
+  }
+
+  /* ── SALVAR NO SUPABASE ── */
+  async function salvarNoSupabase(tabela, dados) {
+    try {
+      var r = await fetch(SUPABASE_URL + '/' + tabela, {
+        method: 'POST',
+        headers: Object.assign({}, HEADERS, { 'Prefer': 'return=minimal' }),
+        body: JSON.stringify(dados)
+      });
+      if (r.ok) {
+        showToast('✓ Dados salvos com sucesso!', 'success');
+        return true;
+      } else {
+        var err = await r.text();
+        console.error('Supabase erro:', err);
+        showToast('Erro ao salvar. Verifique o console.', 'error');
+        return false;
+      }
+    } catch (e) {
+      console.error('Falha na requisição:', e);
+      showToast('Falha na comunicação com o banco.', 'error');
+      return false;
+    }
+  }
+
+  /* ── BUSCAR HISTÓRICO DO SUPABASE ── */
+  async function buscarHistorico(tabela) {
+    try {
+      var r = await fetch(
+        SUPABASE_URL + '/' + tabela + '?order=created_at.desc&limit=10',
+        { headers: HEADERS }
+      );
+      if (r.ok) return await r.json();
+      return [];
+    } catch (e) { return []; }
+  }
+
+  /* ── RENDERIZAR HISTÓRICO LUCRO ── */
+  async function carregarHistLucro() {
+    var tbody = document.getElementById('l-hist-body');
+    var dados = await buscarHistorico('registros');
+    var lucros = dados.filter(function(d){ return d.tipo === 'lucro'; });
+    if (!lucros.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="hist-empty">Nenhum registro ainda.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = lucros.map(function(d) {
+      var data = new Date(d.created_at).toLocaleDateString('pt-BR');
+      var margem = d.faturamento > 0 ? ((d.lucro_liquido / d.faturamento) * 100).toFixed(1) + '%' : '—';
+      var cor = d.lucro_liquido >= 0 ? 'var(--green)' : 'var(--red)';
+      return '<tr>' +
+        '<td>' + data + '</td>' +
+        '<td>' + fmtR(d.faturamento) + '</td>' +
+        '<td style="font-weight:700;color:' + cor + '">' + fmtR(d.lucro_liquido) + '</td>' +
+        '<td>' + margem + '</td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  /* ── RENDERIZAR HISTÓRICO PREÇO ── */
+  async function carregarHistPreco() {
+    var tbody = document.getElementById('p-hist-body');
+    var dados = await buscarHistorico('registros');
+    var precos = dados.filter(function(d){ return d.tipo === 'precificacao'; });
+    if (!precos.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="hist-empty">Nenhum registro ainda.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = precos.map(function(d) {
+      var data = new Date(d.created_at).toLocaleDateString('pt-BR');
+      return '<tr>' +
+        '<td>' + data + '</td>' +
+        '<td>' + fmtR(d.custo_produto) + '</td>' +
+        '<td style="font-weight:700;color:var(--green)">' + fmtR(d.preco_venda) + '</td>' +
+        '<td>' + (d.markup || '—') + '</td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  /* ══════════════════════════════════════════════
+     NAV
+  ══════════════════════════════════════════════ */
+  function goto(id, btn, isSide) {
+    document.querySelectorAll('.section').forEach(function(s){ s.classList.remove('active'); });
+    document.getElementById('sec-' + id).classList.add('active');
     var btns = isSide
       ? document.querySelectorAll('.sidenav-btn')
       : document.querySelectorAll('.navbtn');
-    btns.forEach(b => b.classList.remove('active'));
+    btns.forEach(function(b){ b.classList.remove('active'); });
     btn.classList.add('active');
-
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   /* ── RESPONSIVE SIDEBAR ── */
   function handleResize() {
-    var sidebar  = document.getElementById('sidebar');
+    var sidebar   = document.getElementById('sidebar');
     var bottomnav = document.getElementById('bottomnav');
     if (window.innerWidth >= 900) {
-      sidebar.style.display = 'flex';
+      sidebar.style.display  = 'flex';
       bottomnav.style.display = 'none';
     } else {
-      sidebar.style.display = 'none';
+      sidebar.style.display  = 'none';
       bottomnav.style.display = 'flex';
     }
   }
   window.addEventListener('resize', handleResize);
   handleResize();
 
-  /* ── UTILS ── */
+  /* ══════════════════════════════════════════════
+     UTILS
+  ══════════════════════════════════════════════ */
   function val(id) { return parseFloat(document.getElementById(id).value) || 0; }
-  function fmt(n) {
+  function fmtR(n) {
     return 'R$ ' + Math.abs(n).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
   function pct(n) { return n.toFixed(1) + '%'; }
 
-  /* ── LUCRO REAL ── */
+  /* ══════════════════════════════════════════════
+     LUCRO REAL
+  ══════════════════════════════════════════════ */
+  /* Guarda os valores calculados para salvar */
+  var _lucro = {};
+
   function calcLucro() {
     var fat = val('l-fat');
     var cv  = val('l-cv1') + val('l-cv2') + val('l-cv3');
     var cf  = val('l-cf1') + val('l-cf2') + val('l-cf3');
-
     var bruto   = fat - cv;
     var liquido = bruto - cf;
 
-    document.getElementById('l-bruto').textContent    = fat ? fmt(bruto)  : 'R$ —';
-    document.getElementById('l-cf-total').textContent = cf  ? fmt(cf)     : 'R$ —';
+    _lucro = { fat: fat, cv: cv, cf: cf, bruto: bruto, liquido: liquido };
 
-    var rc  = document.getElementById('l-result-card');
-    var rl  = document.getElementById('l-result-label');
-    var rv  = document.getElementById('l-result-value');
-    var rs  = document.getElementById('l-result-sub');
+    document.getElementById('l-bruto').textContent    = fat ? fmtR(bruto)  : 'R$ —';
+    document.getElementById('l-cf-total').textContent = cf  ? fmtR(cf)     : 'R$ —';
+
+    var rc = document.getElementById('l-result-card');
+    var rl = document.getElementById('l-result-label');
+    var rv = document.getElementById('l-result-value');
+    var rs = document.getElementById('l-result-sub');
 
     if (!fat) {
       rc.className = 'result-card neutral';
       rl.textContent = 'Preencha o faturamento para calcular';
-      rv.textContent = '—';
-      rs.textContent = '';
-      return;
+      rv.textContent = '—'; rs.textContent = ''; return;
     }
-
     if (liquido >= 0) {
       rc.className = 'result-card positive';
       rl.textContent = 'Lucro líquido';
-      rv.textContent = fmt(liquido);
+      rv.textContent = fmtR(liquido);
       rs.textContent = 'Margem: ' + pct(fat > 0 ? (liquido / fat) * 100 : 0) + ' do faturamento';
     } else {
       rc.className = 'result-card negative';
       rl.textContent = 'Prejuízo líquido';
-      rv.textContent = '− ' + fmt(liquido);
+      rv.textContent = '− ' + fmtR(liquido);
       rs.textContent = 'Seus custos superam o faturamento. Revise as despesas!';
     }
   }
 
-  /* ── PRECIFICAÇÃO ── */
+  async function salvarLucro() {
+    if (!_lucro.fat) { showToast('Preencha o faturamento primeiro.', 'error'); return; }
+    var btn = document.getElementById('l-btn-salvar');
+    btn.disabled = true; btn.textContent = 'Salvando...';
+
+    var ok = await salvarNoSupabase('registros', {
+      tipo:          'lucro',
+      faturamento:   _lucro.fat,
+      custos_variaveis: _lucro.cv,
+      custos_fixos:  _lucro.cf,
+      lucro_bruto:   _lucro.bruto,
+      lucro_liquido: _lucro.liquido
+    });
+
+    btn.disabled = false;
+    btn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Salvar no banco de dados';
+    if (ok) carregarHistLucro();
+  }
+
+  /* ══════════════════════════════════════════════
+     PRECIFICAÇÃO
+  ══════════════════════════════════════════════ */
+  var _preco = {};
+
   function calcPreco() {
     var custo  = val('p-custo');
     var taxa   = val('p-taxa');
     var imp    = val('p-imp');
     var margem = val('p-margem');
+    var denom  = 1 - (taxa + imp + margem) / 100;
 
     var rc  = document.getElementById('p-result-card');
     var rv  = document.getElementById('p-result-value');
@@ -757,41 +960,67 @@
     var rs  = document.getElementById('p-result-sub');
     var tip = document.getElementById('p-tip');
 
-    var denom = 1 - (taxa + imp + margem) / 100;
+    _preco = {};
 
     if (!custo || denom <= 0) {
       rc.className = 'result-card neutral';
-      rl.textContent = 'Preço ideal de venda';
-      rv.textContent = '—';
+      rl.textContent = 'Preço ideal de venda'; rv.textContent = '—';
       rs.textContent = denom <= 0 ? 'A soma dos percentuais não pode ser ≥ 100%.' : '';
-      document.getElementById('p-markup').textContent      = '—';
-      document.getElementById('p-lucro-unit').textContent  = '—';
-      document.getElementById('p-desc-max').textContent    = '—';
-      tip.style.display = 'none';
-      return;
+      document.getElementById('p-markup').textContent     = '—';
+      document.getElementById('p-lucro-unit').textContent = '—';
+      document.getElementById('p-desc-max').textContent   = '—';
+      tip.style.display = 'none'; return;
     }
 
     var preco     = custo / denom;
     var totalPct  = (taxa + imp) / 100 * preco;
     var lucroUnit = preco - custo - totalPct;
     var markup    = ((preco / custo) - 1) * 100;
-    var descMax   = margem;
+
+    _preco = { custo, taxa, imp, margem, preco, lucroUnit, markup };
 
     rc.className = 'result-card positive';
     rl.textContent = 'Preço ideal de venda';
-    rv.textContent = fmt(preco);
+    rv.textContent = fmtR(preco);
     rs.textContent = 'Garante ' + pct(margem) + ' de margem líquida após todos os custos.';
 
-    document.getElementById('p-markup').textContent      = pct(markup);
-    document.getElementById('p-lucro-unit').textContent  = fmt(lucroUnit);
-    document.getElementById('p-desc-max').textContent    = pct(descMax);
+    document.getElementById('p-markup').textContent     = pct(markup);
+    document.getElementById('p-lucro-unit').textContent = fmtR(lucroUnit);
+    document.getElementById('p-desc-max').textContent   = pct(margem);
 
     tip.style.display = 'block';
     tip.innerHTML =
-      'Vendendo a <strong>' + fmt(preco) + '</strong> você cobre o custo do produto (' + fmt(custo) +
-      '), as taxas e impostos (' + pct(taxa + imp) + ') e ainda lucra <strong>' + fmt(lucroUnit) +
+      'Vendendo a <strong>' + fmtR(preco) + '</strong> você cobre o custo (' + fmtR(custo) +
+      '), taxas e impostos (' + pct(taxa + imp) + ') e ainda lucra <strong>' + fmtR(lucroUnit) +
       '</strong> por venda (' + pct(margem) + ' de margem).';
   }
+
+  async function salvarPreco() {
+    if (!_preco.custo) { showToast('Preencha o custo do produto primeiro.', 'error'); return; }
+    var btn = document.getElementById('p-btn-salvar');
+    btn.disabled = true; btn.textContent = 'Salvando...';
+
+    var ok = await salvarNoSupabase('registros', {
+      tipo:          'precificacao',
+      custo_produto: _preco.custo,
+      taxa_cartao:   _preco.taxa,
+      imposto:       _preco.imp,
+      margem_lucro:  _preco.margem,
+      preco_venda:   parseFloat(_preco.preco.toFixed(2)),
+      lucro_unitario: parseFloat(_preco.lucroUnit.toFixed(2)),
+      markup:        pct(_preco.markup)
+    });
+
+    btn.disabled = false;
+    btn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Salvar no banco de dados';
+    if (ok) carregarHistPreco();
+  }
+
+  /* ── INIT: carregar históricos ao abrir ── */
+  window.addEventListener('DOMContentLoaded', function() {
+    carregarHistLucro();
+    carregarHistPreco();
+  });
 </script>
 </body>
 </html>
